@@ -1,9 +1,9 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { login } from '@/app/actions';
 import { LoginSchema } from '@/lib/schema';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,15 +18,26 @@ import { Input } from '@/components/ui/input';
 import { useTransition, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useAuth } from '@/firebase';
+import { useUser, useAuth, useFirestore, useMemoFirebase } from '@/firebase';
 import { redirect } from 'next/navigation';
 import { initiateEmailSignIn } from '@/firebase/non-blocking-login';
+import { useDoc } from '@/firebase/firestore/use-doc';
+import { doc } from 'firebase/firestore';
+
 
 export function LoginForm() {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
+  const firestore = useFirestore();
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, `users/${user.uid}`);
+  }, [user, firestore]);
+
+  const { data: userProfile } = useDoc<{ isAdmin?: boolean }>(userProfileRef);
 
   const form = useForm<z.infer<typeof LoginSchema>>({
     resolver: zodResolver(LoginSchema),
@@ -37,10 +48,14 @@ export function LoginForm() {
   });
 
   useEffect(() => {
-    if (user && !isUserLoading) {
-      redirect('/dashboard');
+    if (user && !isUserLoading && userProfile) {
+        if (userProfile.isAdmin) {
+            redirect('/admin');
+        } else {
+            redirect('/dashboard');
+        }
     }
-  }, [user, isUserLoading]);
+  }, [user, isUserLoading, userProfile]);
 
 
   function onSubmit(values: z.infer<typeof LoginSchema>) {

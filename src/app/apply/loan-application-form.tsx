@@ -1,8 +1,10 @@
+
 'use client';
-import { useEffect, useState, useRef, useActionState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useActionState } from 'react';
 import { applyForLoan, type LoanApplicationState } from '@/app/actions';
 import { LoanApplicationSchema } from '@/lib/schema';
 import { Button } from '@/components/ui/button';
@@ -14,12 +16,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PartyPopper, Frown } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useUser, useFirestore, addDocumentNonBlocking } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
 type LoanApplicationFormValues = z.infer<typeof LoanApplicationSchema>;
 
 export default function LoanApplicationForm() {
   const [resultModalOpen, setResultModalOpen] = useState(false);
   const { toast } = useToast();
+  const { user } = useUser();
+  const firestore = useFirestore();
   
   const initialState: LoanApplicationState = { message: '' };
   const [state, formAction, isPending] = useActionState(applyForLoan, initialState);
@@ -41,9 +47,29 @@ export default function LoanApplicationForm() {
   const fileRef = form.register("kycDocument");
 
   useEffect(() => {
-    if (state.message === 'success') {
+    if (state.message === 'success' && state.data) {
       setResultModalOpen(true);
+
+      if (state.data.isEligible && user && firestore) {
+        const loanData = {
+          userId: user.uid,
+          loanAmount: form.getValues('loanAmount'),
+          loanPurpose: form.getValues('loanPurpose'),
+          applicationDate: new Date().toISOString(),
+          status: 'Outstanding',
+          ...form.getValues()
+        };
+
+        const loanApplicationsRef = collection(firestore, `users/${user.uid}/loanApplications`);
+        addDocumentNonBlocking(loanApplicationsRef, loanData);
+
+        toast({
+          title: "Application Saved!",
+          description: "Your loan application has been saved to your profile."
+        });
+      }
       form.reset();
+
     } else if (state.message === 'error' && state.error) {
       toast({
         variant: 'destructive',
@@ -51,7 +77,7 @@ export default function LoanApplicationForm() {
         description: state.error,
       });
     }
-  }, [state, toast, form]);
+  }, [state, toast, form, user, firestore]);
   
   return (
     <>
@@ -97,7 +123,7 @@ export default function LoanApplicationForm() {
                     <FormItem>
                       <FormLabel>Age</FormLabel>
                       <FormControl>
-                        <Input type="number" {...field} />
+                        <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10))}/>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -133,7 +159,7 @@ export default function LoanApplicationForm() {
                     <FormItem>
                       <FormLabel>Monthly Income (₦)</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="50000" {...field} />
+                        <Input type="number" placeholder="50000" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10))}/>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -146,7 +172,7 @@ export default function LoanApplicationForm() {
                     <FormItem>
                       <FormLabel>Loan Amount (₦)</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="100000" {...field} />
+                        <Input type="number" placeholder="100000" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10))}/>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -181,7 +207,7 @@ export default function LoanApplicationForm() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button type="submit" disabled={isPending}>
+              <Button type="submit" disabled={isPending || !user}>
                 {isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -212,7 +238,7 @@ export default function LoanApplicationForm() {
               {state.data.isEligible && (
                  <div className="p-4 bg-secondary rounded-lg">
                     <p className="font-bold">Loan Offer</p>
-                    <p><strong className="text-foreground">Approved Amount:</strong> ₦{state.data.recommendedLoanAmount?.toLocaleString() || state.data.eligibilityReason.match(/(\d,?\d*)/)?.[0] || 'N/A'}</p>
+                    <p><strong className="text-foreground">Approved Amount:</strong> ₦{state.data.recommendedLoanAmount?.toLocaleString() || form.getValues('loanAmount').toLocaleString()}</p>
                     <p><strong className="text-foreground">Interest Rate:</strong> 5% (fixed)</p>
                     <p className="mt-2"><strong className="text-foreground">Repayment Options:</strong></p>
                     <ul className="list-disc pl-5 text-muted-foreground">

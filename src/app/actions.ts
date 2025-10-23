@@ -83,6 +83,10 @@ export async function applyForLoan(
     
     const result = await automateLoanEligibilityCheck(aiInput);
 
+    // This will be handled on the client now
+    // if (result.isEligible) {
+    // }
+
     return { message: 'success', data: result };
   } catch (error) {
     console.error(error);

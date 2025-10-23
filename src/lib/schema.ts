@@ -18,7 +18,7 @@ export const LoanApplicationSchema = z.object({
   fullName: z.string().min(3, 'Full name is required'),
   email: z.string().email('Invalid email address'),
   age: z.coerce.number().min(18, 'You must be at least 18 years old'),
-  employmentStatus: z.string().min(1, 'Employment status is required'),
+  employmentStatus: z.string({required_error: 'Employment status is required.'}).min(1, 'Employment status is required'),
   monthlyIncome: z.coerce.number().min(0, 'Monthly income must be a positive number'),
   loanAmount: z.coerce.number().min(100, 'Loan amount must be at least ₦100'),
   loanPurpose: z.string().min(10, 'Please describe the loan purpose in more detail (min. 10 characters)'),
