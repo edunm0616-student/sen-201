@@ -1,104 +1,95 @@
-'use client';
+import { AppLayout } from "@/components/app-layout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { DollarSign, CreditCard, Landmark } from "lucide-react";
 
-import { useFirestore, useUser } from '@/firebase';
-import {
-  getUserApplications,
-  getLoanPlans,
-} from '@/lib/data-client';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { ApplicationsList } from '@/components/dashboard/applications-list';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { LoanApplication, LoanPlan } from '@/lib/definitions';
-import { Skeleton } from '@/components/ui/skeleton';
+const loanHistory:any[] = [];
 
 export default function DashboardPage() {
-  const { user, loading: userLoading } = useUser();
-  const db = useFirestore();
-  const [applications, setApplications] = useState<LoanApplication[]>([]);
-  const [plans, setPlans] = useState<LoanPlan[]>([]);
-  const [loading, setLoading] = useState(true);
+    const outstandingLoan = loanHistory.find(loan => loan.status === 'Outstanding');
+    const totalPaid = loanHistory.filter(loan => loan.status === 'Paid').reduce((sum, loan) => sum + loan.amount, 0);
 
-  useEffect(() => {
-    async function fetchData() {
-      if (user?.uid) {
-        setLoading(true);
-        const [userApps, loanPlans] = await Promise.all([
-          getUserApplications(db, user.uid),
-          getLoanPlans(db),
-        ]);
-        setApplications(userApps);
-        setPlans(loanPlans);
-        setLoading(false);
-      }
-    }
-    if (!userLoading) {
-        fetchData();
-    }
-  }, [user, userLoading, db]);
-
-  const recentApplications = applications.slice(0, 3);
-
-  if (userLoading || loading) {
     return (
-        <div className="space-y-8">
-            <Skeleton className="h-9 w-64" />
-            <Skeleton className="h-6 w-96" />
-            <Card>
-                <CardHeader>
-                    <Skeleton className="h-7 w-48" />
-                    <Skeleton className="h-5 w-64" />
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-4">
-                        <Skeleton className="h-12 w-full" />
-                        <Skeleton className="h-12 w-full" />
-                        <Skeleton className="h-12 w-full" />
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
-    )
-  }
-
-  return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold">Welcome back, {user?.name}!</h1>
-        <p className="text-muted-foreground">
-          Here&apos;s a quick overview of your account.
-        </p>
-      </div>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>Recent Applications</CardTitle>
-            <CardDescription>
-              Your last {recentApplications.length} loan applications.
-            </CardDescription>
-          </div>
-          <Button variant="outline" asChild>
-            <Link href="/dashboard/applications">
-              View All <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <ApplicationsList
-            applications={recentApplications}
-            plans={plans}
-          />
-        </CardContent>
-      </Card>
-    </div>
-  );
+        <AppLayout>
+            <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+                <div className="flex items-center justify-between space-y-2">
+                    <h2 className="text-3xl font-bold tracking-tight font-headline">Dashboard</h2>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Outstanding Balance</CardTitle>
+                            <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">₦{outstandingLoan ? outstandingLoan.amount.toLocaleString() : '0.00'}</div>
+                            <p className="text-xs text-muted-foreground">
+                                {outstandingLoan ? `Due from loan ${outstandingLoan.id}`: 'No active loans'}
+                            </p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
+                            <CreditCard className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">₦{totalPaid.toLocaleString()}</div>
+                            <p className="text-xs text-muted-foreground">Across {loanHistory.filter(l => l.status === 'Paid').length} loans</p>
+                        </CardContent>
+                    </Card>
+                     <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Next Repayment</CardTitle>
+                            <Landmark className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">No Repayments</div>
+                            <p className="text-xs text-muted-foreground">No upcoming payments</p>
+                        </CardContent>
+                    </Card>
+                </div>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Loan History</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Loan ID</TableHead>
+                                    <TableHead>Amount</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Date</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {loanHistory.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="text-center">
+                                            No loan history found.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    loanHistory.map((loan) => (
+                                        <TableRow key={loan.id}>
+                                            <TableCell className="font-medium">{loan.id}</TableCell>
+                                            <TableCell>₦{loan.amount.toLocaleString()}</TableCell>
+                                            <TableCell>
+                                                <Badge variant={loan.status === 'Paid' ? 'secondary' : 'destructive'}>
+                                                    {loan.status}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>{loan.date}</TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            </div>
+        </AppLayout>
+    );
 }

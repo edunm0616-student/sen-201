@@ -1,40 +1,10 @@
 {
   "placeholderImages": [
     {
-      "id": "personal-loan",
-      "description": "A person planning their finances for a personal loan.",
-      "imageUrl": "https://picsum.photos/seed/101/600/400",
-      "imageHint": "finance planning"
-    },
-    {
-      "id": "home-loan",
-      "description": "A smiling family standing in front of their new house.",
-      "imageUrl": "https://picsum.photos/seed/102/600/400",
-      "imageHint": "family house"
-    },
-    {
-      "id": "car-loan",
-      "description": "A person proudly holding keys next to a new car.",
-      "imageUrl": "https://picsum.photos/seed/103/600/400",
-      "imageHint": "new car"
-    },
-    {
-      "id": "education-loan",
-      "description": "A student in a graduation cap throwing it in the air.",
-      "imageUrl": "https://picsum.photos/seed/104/600/400",
-      "imageHint": "student graduation"
-    },
-    {
-      "id": "business-loan",
-      "description": "A small business owner working in their shop.",
-      "imageUrl": "https://picsum.photos/seed/105/600/400",
-      "imageHint": "small business"
-    },
-    {
-      "id": "hero-image",
-      "description": "A modern and bright office space, conveying professionalism and trust.",
-      "imageUrl": "https://picsum.photos/seed/100/1200/800",
-      "imageHint": "modern office"
+      "id": "hero",
+      "description": "A person reviewing documents at a modern desk.",
+      "imageUrl": "https://images.unsplash.com/photo-1758876020300-76a782ca51c6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxmaW5hbmNlJTIwZG9jdW1lbnR8ZW58MHx8fHwxNzYxMjMzNjA0fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "finance document"
     }
   ]
 }
