@@ -1,9 +1,54 @@
-rules_version = '2';
 
+rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if false;
+
+    // Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // Rules for User Profiles
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isAdmin();
+    }
+
+    // Rules for Loan Applications
+    match /loanApplications/{loanApplicationId} {
+      allow get: if isAdmin() || isOwner(resource.data.userId);
+      allow list: if isAdmin() || (isSignedIn() && request.query.where.userId == request.auth.uid);
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isAdmin() || isOwner(resource.data.userId);
+      allow delete: if isAdmin();
+    }
+
+    // Rules for Repayment Schedules
+    match /repaymentSchedules/{repaymentScheduleId} {
+      allow get: if isAdmin() || isOwner(resource.data.userId);
+      allow list: if isAdmin() || (isSignedIn() && request.query.where.userId == request.auth.uid);
+      allow create: if isOwner(request.resource.data.userId);
+      allow update, delete: if isAdmin() || isOwner(resource.data.userId);
+    }
+    
+    // Rules for Feedback
+    match /feedback/{feedbackId} {
+      // Anyone can submit feedback.
+      allow create: if true;
+
+      // Only admins can read or list feedback.
+      allow get, list, update, delete: if isAdmin();
     }
   }
 }
