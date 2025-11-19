@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
+import { UserFeedback } from '@/components/user-feedback';
 
 export default function Home() {
   return (
@@ -37,16 +38,21 @@ export default function Home() {
           </div>
         </section>
       </main>
-      <footer className="flex flex-col gap-2 sm:flex-row py-6 w-full shrink-0 items-center px-4 md:px-6 border-t">
-        <p className="text-xs text-foreground/70">&copy; 2024 QuickLoan. All rights reserved.</p>
-        <nav className="sm:ml-auto flex gap-4 sm:gap-6">
-          <Link className="text-xs hover:underline underline-offset-4 text-foreground/70" href="#">
-            Terms of Service
-          </Link>
-          <Link className="text-xs hover:underline underline-offset-4 text-foreground/70" href="#">
-            Privacy
-          </Link>
-        </nav>
+      <footer className="flex flex-col gap-6 sm:flex-row py-6 w-full shrink-0 items-center justify-between px-4 md:px-6 border-t">
+        <div className="flex flex-col gap-2 text-center sm:text-left">
+            <p className="text-xs text-foreground/70">&copy; 2024 QuickLoan. All rights reserved.</p>
+            <nav className="flex justify-center sm:justify-start gap-4 sm:gap-6">
+            <Link className="text-xs hover:underline underline-offset-4 text-foreground/70" href="#">
+                Terms of Service
+            </Link>
+            <Link className="text-xs hover:underline underline-offset-4 text-foreground/70" href="#">
+                Privacy
+            </Link>
+            </nav>
+        </div>
+        <div className="w-full sm:w-auto">
+            <UserFeedback />
+        </div>
       </footer>
     </div>
   );

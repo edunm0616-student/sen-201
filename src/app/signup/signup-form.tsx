@@ -54,6 +54,9 @@ export function SignupForm() {
           dateOfBirth: '', // This can be collected in a user profile page later
           isAdmin: false, // Default to not being an admin
           photoURL: `https://picsum.photos/seed/${user.uid}/200/200`,
+          accountTier: 'Bronze',
+          creditScore: 0,
+          userType: 'User'
         };
         setDocumentNonBlocking(userRef, userData, { merge: true });
         userCreatedRef.current = true;

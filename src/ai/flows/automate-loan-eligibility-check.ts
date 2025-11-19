@@ -16,12 +16,8 @@ const AutomateLoanEligibilityCheckInputSchema = z.object({
     .describe('A summary of the user\'s personal details including age, employment status, and income.'),
   loanAmount: z.number().describe('The amount of loan the user is requesting.'),
   loanPurpose: z.string().describe('The stated purpose of the loan.'),
-  kycDocuments: z
-    .string()
-    .describe(
-      'KYC documents uploaded by the user, as a data URI that must include a MIME type and use Base64 encoding. Expected format: \'data:<mimetype>;base64,<encoded_data>\'.' + 
-      'These documents will be used to verify the user\'s identity and financial status. Include all relevant information such as BVN and NIN.'
-    ),
+  bvn: z.string().describe('The user\'s 11-digit Bank Verification Number (BVN).'),
+  nin: z.string().describe('The user\'s 11-digit National Identification Number (NIN).'),
 });
 export type AutomateLoanEligibilityCheckInput = z.infer<
   typeof AutomateLoanEligibilityCheckInputSchema
@@ -57,14 +53,15 @@ const prompt = ai.definePrompt({
   name: 'automateLoanEligibilityCheckPrompt',
   input: {schema: AutomateLoanEligibilityCheckInputSchema},
   output: {schema: AutomateLoanEligibilityCheckOutputSchema},
-  prompt: `You are an AI loan eligibility expert. Analyze the following information to determine if the user is eligible for a loan. Be very detailed and explain your reasoning.
+  prompt: `You are an AI loan eligibility expert for a Nigerian loan company. Analyze the following information to determine if the user is eligible for a loan. Be very detailed and explain your reasoning.
 
 Personal Details: {{{personalDetails}}}
 Loan Amount: {{{loanAmount}}}
 Loan Purpose: {{{loanPurpose}}}
-KYC Documents: {{media url=kycDocuments}}
+BVN: {{{bvn}}}
+NIN: {{{nin}}}
 
-Based on this information, determine if the user is eligible for the loan and provide a detailed explanation. If the user is not eligible, clearly state the reasons why. Also, if applicable, recommend a different loan amount that they might be eligible for.
+Based on this information, verify the user's identity and financial status. Determine if the user is eligible for the loan and provide a detailed explanation. If the user is not eligible, clearly state the reasons why. Also, if applicable, recommend a different loan amount that they might be eligible for.
 `,
 });
 

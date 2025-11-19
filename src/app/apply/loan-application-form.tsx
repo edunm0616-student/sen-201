@@ -1,6 +1,6 @@
 
 'use client';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -14,10 +14,10 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PartyPopper, Frown } from 'lucide-react';
+import { Loader2, PartyPopper } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { useUser, useFirestore, addDocumentNonBlocking } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { collection, doc, increment } from 'firebase/firestore';
 
 type LoanApplicationFormValues = z.infer<typeof LoanApplicationSchema>;
 
@@ -35,39 +35,43 @@ export default function LoanApplicationForm() {
     defaultValues: {
       fullName: '',
       email: '',
-      age: 18,
+      age: '',
       employmentStatus: undefined,
-      monthlyIncome: 0,
-      loanAmount: 1000,
+      monthlyIncome: '',
+      loanAmount: '',
       loanPurpose: '',
-      kycDocument: undefined,
+      bvn: '',
+      nin: '',
     },
   });
-  
-  const fileRef = form.register("kycDocument");
 
   useEffect(() => {
-    if (state.message === 'success' && state.data) {
+    if (state.message === 'success' && user && firestore) {
       setResultModalOpen(true);
+      const userRef = doc(firestore, 'users', user.uid);
 
-      if (state.data.isEligible && user && firestore) {
-        const loanData = {
-          userId: user.uid,
-          loanAmount: form.getValues('loanAmount'),
-          loanPurpose: form.getValues('loanPurpose'),
-          applicationDate: new Date().toISOString(),
-          status: 'Outstanding',
-          ...form.getValues()
-        };
+      // Get all form values
+      const formValues = form.getValues();
 
-        const loanApplicationsRef = collection(firestore, `users/${user.uid}/loanApplications`);
-        addDocumentNonBlocking(loanApplicationsRef, loanData);
+      // Save loan application
+      const loanData = {
+        ...formValues, // include all form fields
+        userId: user.uid,
+        applicationDate: new Date().toISOString(),
+        status: 'Pending', // Default status
+      };
 
-        toast({
-          title: "Application Saved!",
-          description: "Your loan application has been saved to your profile."
-        });
-      }
+      const loanApplicationsRef = collection(firestore, 'loanApplications');
+      addDocumentNonBlocking(loanApplicationsRef, loanData);
+      
+      // Update credit score slightly for applying
+      updateDocumentNonBlocking(userRef, { creditScore: increment(1) });
+
+      toast({
+        title: "Application Submitted!",
+        description: "Your loan application has been saved and is pending review."
+      });
+
       form.reset();
 
     } else if (state.message === 'error' && state.error) {
@@ -84,7 +88,7 @@ export default function LoanApplicationForm() {
       <Card>
         <CardHeader>
           <CardTitle>Apply for a Loan</CardTitle>
-          <CardDescription>Fill in your details to check your loan eligibility.</CardDescription>
+          <CardDescription>Fill in your details to submit a loan application.</CardDescription>
         </CardHeader>
         <Form {...form}>
           <form action={formAction} className="space-y-8">
@@ -123,7 +127,7 @@ export default function LoanApplicationForm() {
                     <FormItem>
                       <FormLabel>Age</FormLabel>
                       <FormControl>
-                        <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10))}/>
+                        <Input type="text" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -159,7 +163,7 @@ export default function LoanApplicationForm() {
                     <FormItem>
                       <FormLabel>Monthly Income (₦)</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="50000" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10))}/>
+                        <Input type="text" placeholder="50000" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -172,7 +176,7 @@ export default function LoanApplicationForm() {
                     <FormItem>
                       <FormLabel>Loan Amount (₦)</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="100000" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10))}/>
+                        <Input type="text" placeholder="100000" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -191,14 +195,27 @@ export default function LoanApplicationForm() {
                     </FormItem>
                   )}
                 />
-                <FormField
+                 <FormField
                   control={form.control}
-                  name="kycDocument"
+                  name="bvn"
                   render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>KYC Document (BVN, NIN, etc.)</FormLabel>
+                    <FormItem>
+                      <FormLabel>Bank Verification Number (BVN)</FormLabel>
                       <FormControl>
-                        <Input type="file" accept="image/*,.pdf" {...fileRef} />
+                        <Input placeholder="11-digit BVN" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="nin"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>National Identification Number (NIN)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="11-digit NIN" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -211,53 +228,33 @@ export default function LoanApplicationForm() {
                 {isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Checking Eligibility...
+                    Submitting Application...
                   </>
                 ) : (
-                  'Check Eligibility'
+                  'Submit Application'
                 )}
               </Button>
             </CardFooter>
           </form>
         </Form>
       </Card>
-      {state.data && (
-        <AlertDialog open={resultModalOpen} onOpenChange={setResultModalOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle className="flex items-center gap-2 font-headline">
-                {state.data.isEligible ? <PartyPopper className="text-green-500 h-8 w-8" /> : <Frown className="text-red-500 h-8 w-8" />}
-                Eligibility Result
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                {state.data.isEligible ? "Congratulations! You are eligible for the loan." : "We're sorry, you are not eligible for the loan at this time."}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <div className="text-sm space-y-4 py-4">
-              <p><strong className="text-foreground">Reason:</strong> {state.data.eligibilityReason}</p>
-              {state.data.isEligible && (
-                 <div className="p-4 bg-secondary rounded-lg">
-                    <p className="font-bold">Loan Offer</p>
-                    <p><strong className="text-foreground">Approved Amount:</strong> ₦{state.data.recommendedLoanAmount?.toLocaleString() || form.getValues('loanAmount').toLocaleString()}</p>
-                    <p><strong className="text-foreground">Interest Rate:</strong> 5% (fixed)</p>
-                    <p className="mt-2"><strong className="text-foreground">Repayment Options:</strong></p>
-                    <ul className="list-disc pl-5 text-muted-foreground">
-                        <li>Weekly</li>
-                        <li>Monthly</li>
-                        <li>Quarterly</li>
-                    </ul>
-                 </div>
-              )}
-              {!state.data.isEligible && state.data.recommendedLoanAmount && (
-                <p className="p-4 bg-secondary rounded-lg"><strong className="text-foreground">Suggestion:</strong> You might be eligible for a lower amount of <span className="font-bold">₦{state.data.recommendedLoanAmount.toLocaleString()}</span>. Consider reapplying with this amount.</p>
-              )}
-            </div>
-            <AlertDialogFooter>
-              <AlertDialogAction>Close</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
+      
+      <AlertDialog open={resultModalOpen} onOpenChange={setResultModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 font-headline">
+              <PartyPopper className="text-green-500 h-8 w-8" />
+              Application Submitted!
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Your loan application has been successfully submitted for review. We will notify you once a decision has been made.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>Close</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

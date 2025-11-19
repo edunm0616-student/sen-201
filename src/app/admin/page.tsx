@@ -5,54 +5,92 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collectionGroup, query } from "firebase/firestore";
+import { collection, query, doc } from "firebase/firestore";
 import { format } from 'date-fns';
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useDoc } from "@/firebase/firestore/use-doc";
-import { doc } from "firebase/firestore";
+
+interface LoanWithUser extends Record<string, any> {
+    user?: {
+        email: string;
+        isAdmin?: boolean;
+    };
+}
 
 export default function AdminDashboardPage() {
     const { user, isUserLoading } = useUser();
     const firestore = useFirestore();
     const router = useRouter();
+    const [loansWithUsers, setLoansWithUsers] = useState<LoanWithUser[]>([]);
 
     const userProfileRef = useMemoFirebase(() => {
         if (!user || !firestore) return null;
         return doc(firestore, `users/${user.uid}`);
     }, [user, firestore]);
 
-    const { data: userProfile } = useDoc<{ isAdmin?: boolean }>(userProfileRef);
-
-    const allLoansQuery = useMemoFirebase(() => {
-        if (!firestore || !userProfile?.isAdmin) return null;
-        return query(collectionGroup(firestore, 'loanApplications'));
-    }, [firestore, userProfile]);
-
-    const { data: allLoans, isLoading } = useCollection(allLoansQuery);
+    const { data: userProfile, isLoading: isProfileLoading } = useDoc<{ isAdmin?: boolean }>(userProfileRef);
 
     useEffect(() => {
-        if (!isUserLoading && (!user || (userProfile && !userProfile.isAdmin))) {
+        // Wait until both user and profile loading are complete
+        if (isUserLoading || isProfileLoading) {
+            return; // Do nothing while loading
+        }
+        
+        // After loading, if there's no user, redirect to login
+        if (!user) {
+            router.push('/login');
+            return;
+        }
+
+        // After loading, if the user is present but is not an admin, redirect to dashboard
+        if (user && userProfile?.isAdmin === false) {
             router.push('/dashboard');
         }
-    }, [user, userProfile, isUserLoading, router]);
+    }, [user, userProfile, isUserLoading, isProfileLoading, router]);
+    
+    const isConfirmedAdmin = !isProfileLoading && userProfile?.isAdmin === true;
 
-    if (isUserLoading || !userProfile) {
+    const allLoansQuery = useMemoFirebase(() => {
+        if (!firestore || !isConfirmedAdmin) return null;
+        return query(collection(firestore, 'loanApplications'));
+    }, [firestore, isConfirmedAdmin]);
+
+    const { data: allLoans, isLoading: loansLoading } = useCollection(allLoansQuery);
+
+    const allUsersQuery = useMemoFirebase(() => {
+        if (!firestore || !isConfirmedAdmin) return null;
+        return query(collection(firestore, 'users'));
+    }, [firestore, isConfirmedAdmin]);
+    
+    const { data: allUsers, isLoading: usersLoading } = useCollection(allUsersQuery);
+
+    useEffect(() => {
+        if (isConfirmedAdmin && allLoans && allUsers) {
+            const usersById = new Map(allUsers.map(u => [u.id, u]));
+            const combinedData = allLoans.map(loan => ({
+                ...loan,
+                user: usersById.get(loan.userId)
+            }));
+            setLoansWithUsers(combinedData);
+        }
+    }, [isConfirmedAdmin, allLoans, allUsers]);
+
+    // Show a loading screen while verifying admin status, which prevents premature redirects
+    if (isUserLoading || isProfileLoading || !isConfirmedAdmin) {
         return (
             <AppLayout>
                 <div className="flex items-center">
                     <h1 className="text-lg font-semibold md:text-2xl font-headline">Admin Dashboard</h1>
                 </div>
                  <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed shadow-sm">
-                    <p>Loading...</p>
+                    <p>Verifying admin status...</p>
                 </div>
             </AppLayout>
         );
     }
     
-    if (!userProfile.isAdmin) {
-        return null; 
-    }
+    const isLoading = loansLoading || usersLoading;
 
     return (
         <AppLayout>
@@ -70,6 +108,7 @@ export default function AdminDashboardPage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>User Email</TableHead>
+                                    <TableHead>User Type</TableHead>
                                     <TableHead>Amount</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead>Date</TableHead>
@@ -78,20 +117,25 @@ export default function AdminDashboardPage() {
                             <TableBody>
                                 {isLoading ? (
                                      <TableRow>
-                                        <TableCell colSpan={4} className="text-center h-24">
+                                        <TableCell colSpan={5} className="text-center h-24">
                                             Loading all loans...
                                         </TableCell>
                                     </TableRow>
-                                ) : !allLoans || allLoans.length === 0 ? (
+                                ) : !loansWithUsers || loansWithUsers.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="h-24 text-center">
+                                        <TableCell colSpan={5} className="h-24 text-center">
                                             No loan applications found.
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    allLoans.map((loan) => (
+                                    loansWithUsers.map((loan) => (
                                         <TableRow key={loan.id}>
-                                            <TableCell>{loan.email}</TableCell>
+                                            <TableCell>{loan.user?.email || 'Unknown User'}</TableCell>
+                                            <TableCell>
+                                                <Badge variant={loan.user?.isAdmin ? 'destructive' : 'outline'}>
+                                                    {loan.user?.isAdmin ? 'Admin' : 'User'}
+                                                </Badge>
+                                            </TableCell>
                                             <TableCell>₦{loan.loanAmount.toLocaleString()}</TableCell>
                                             <TableCell>
                                                 <Badge variant={loan.status === 'Paid' ? 'secondary' : (loan.status === 'Outstanding' ? 'default' : 'destructive')}>
